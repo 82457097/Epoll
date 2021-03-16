@@ -11,7 +11,7 @@
 
 using namespace std;
 
-#define MAX_EVENTS 500  
+#define MAX_EVENTS 500 
 struct myevent_s     {  
     int fd;  
     void (*call_back)(int fd, int events, void *arg);  
@@ -23,12 +23,18 @@ struct myevent_s     {
     long last_active; 	// last active time  
 };
 
+int g_epollFd;  
+myevent_s g_Events[MAX_EVENTS+1]; 		// g_Events[MAX_EVENTS] is used by listen fd  
+void RecvData(int fd, int events, void *arg);  
+void SendData(int fd, int events, void *arg);
+
+
 // set event  
 void EventSet(myevent_s *ev, int fd, void (*call_back)(int, int, void*), void *arg) {  
-    ev->fd = fd;  
-    ev->call_back = call_back;  
-    ev->events = 0;  
-    ev->arg = arg;  
+    ev->fd = fd;
+    ev->call_back = call_back;
+    ev->events = 0;
+    ev->arg = arg;
     ev->status = 0;
     memset(ev->buff, sizeof(ev->buff), 0);
     ev->s_offset = 0;  
@@ -59,16 +65,13 @@ void EventAdd(int epollFd, int events, myevent_s *ev) {
 // delete an event from epoll  
 void EventDel(int epollFd, myevent_s *ev) {  
     struct epoll_event epv = {0, {0}};  
-    if(ev->status != 1) return;  
+    if(ev->status != 1) {
+		return;
+    }
     epv.data.ptr = ev;  
     ev->status = 0;
     epoll_ctl(epollFd, EPOLL_CTL_DEL, ev->fd, &epv);  
 }
-
-int g_epollFd;  
-myevent_s g_Events[MAX_EVENTS+1]; 		// g_Events[MAX_EVENTS] is used by listen fd  
-void RecvData(int fd, int events, void *arg);  
-void SendData(int fd, int events, void *arg);
 
 // accept new connections from clients  
 void AcceptConn(int fd, int events, void *arg) {  
@@ -157,10 +160,10 @@ void SendData(int fd, int events, void *arg) {
 void InitListenSocket(int epollFd, short port) {  
     int listenFd = socket(AF_INET, SOCK_STREAM, 0);  
     fcntl(listenFd, F_SETFL, O_NONBLOCK); // set non-blocking  
-    printf("server listen fd=%d\n", listenFd);  
+	cout << "Server listen fd: " << listenFd << endl;
     EventSet(&g_Events[MAX_EVENTS], listenFd, AcceptConn, &g_Events[MAX_EVENTS]);  
     // add listen socket  
-    EventAdd(epollFd, EPOLLIN, &g_Events[MAX_EVENTS]);  
+    EventAdd(epollFd, EPOLLIN, &g_Events[MAX_EVENTS]);
     // bind & listen  
     sockaddr_in sin;  
     memset(&sin, sizeof(sin), 0);  
@@ -172,16 +175,21 @@ void InitListenSocket(int epollFd, short port) {
 }
 
 int main(int argc, char **argv) {  
-    unsigned short port = 12345; // default port  
+    unsigned short port = 12345;
     if(argc == 2) {  
         port = atoi(argv[1]);  
-    }  
+    }
+	
     // create epoll  
     g_epollFd = epoll_create(MAX_EVENTS);  
-    if(g_epollFd <= 0) printf("create epoll failed.%d\n", g_epollFd);  
-    // create & bind listen socket, and add to epoll, set non-blocking  
+    if(g_epollFd <= 0) {
+		cout <<"create epoll failed." <<endl;
+    }
+	
+	// create & bind listen socket, and add to epoll, set non-blocking
     InitListenSocket(g_epollFd, port);  
-    // event loop  
+
+	// event loop  
     struct epoll_event events[MAX_EVENTS];  
     printf("server running:port[%d]\n", port);  
     int checkPos = 0;  
