@@ -42,7 +42,8 @@ char* share_mem = 0;
 
 /* 客户连接数组，进程用客户连接的编号来索引这个数组，即可取得相关的客户连接数据 */
 client_data* users = 0;
-/* 子进程和客户连接的映射关系表。用进程的PID来索引这个数组，即可取得该进程所处理的客户连接的编号 */
+/* 子进程和客户连接的映射关系表。
+   用进程的PID来索引这个数组，即可取得该进程所处理的客户连接的编号 */
 int* sub_process = 0;
 /*当前客户数量 */
 int user_count = 0;
@@ -98,10 +99,13 @@ void child_term_handler(int sig) {
 	stop_child = true;
 }
 
-/* 子进程运行的函数。参数 idx 指出该子进程处理的客户连接的编号，users 是保存所有客户连接数据的数组，参数 share_mem 指出共享内存的起始地址 */
+/* 子进程运行的函数。参数idx指出该子进程处理的客户连接的编号，
+   users是保存所有客户连接数据的数组，
+   参数share_mem指出共享内存的起始地址 */
 int run_child(int idx, client_data* users, char* share_mem) {
 	epoll_event events[MAX_EVENT_NUMBER];
-	/* 子进程使用 I/O 复用技术来同时监听两个文件描述符∶客户连接 socket、与父进程通信的管道文件描述符*/
+	/* 子进程使用I/O复用技术来同时监听两个文件描述符∶
+	   客户连接socket与父进程通信的管道文件描述符*/
 	int child_epollfd = epoll_create( 5 );
 	assert(child_epollfd != -1);
 	int connfd = users[idx].connfd;
@@ -123,8 +127,9 @@ int run_child(int idx, client_data* users, char* share_mem) {
 			/* 本子进程负责的客户连接有数据到达 */
 			if((sockfd == connfd) && (events[i].events & EPOLLIN)) {
 				memset(share_mem + idx*BUFFER_SIZE, '\0', BUFFER_SIZE);
-				/* 将客户数据读取到对应的读缓存中。该读缓存是共享内存的一段，它开始于
-				idx*BUFFER_SIZE处，长度为BUFFER_SIZE字节，因此，各个客户连接的读缓存是共享的*/
+				/* 将客户数据读取到对应的读缓存中。该读缓存是共享内存的一段，
+				   它开始于idx*BUFFER_SIZE处，长度为BUFFER_SIZE字节，
+				   因此，各个客户连接的读缓存是共享的*/
 				ret = recv(connfd, share_mem + idx*BUFFER_SIZE, BUFFER_SIZE-1, 0);
 				if(ret < 0) {
 					if( errno != EAGAIN ) {
@@ -202,7 +207,7 @@ int main(int argc, char* argv[]) {
 	addsig(SIGPIPE, SIG_IGN);
 	bool stop_server = false;
 	bool terminate = false;
-	/*创建共享内存，作为所有客户socket 连接的读缓存*/ 
+	/* 创建共享内存，作为所有客户socket连接的读缓存 */ 
 	shmfd = shm_open(shm_name, O_CREAT | O_RDWR, 0666);
 	assert(shmfd != -1);
 	ret = ftruncate(shmfd, USER_LIMIT * BUFFER_SIZE);
@@ -235,7 +240,7 @@ int main(int argc, char* argv[]) {
 					close(connfd);
 					continue;
 				}
-				/* 保存第 user_count 个客户连接的相关数据 */
+				/* 保存第user_count个客户连接的相关数据 */
 				users[user_count].address = client_address;
 				users[user_count].connfd = connfd;
 				/* 在主进程和子进程间建立管道，以传递必要的数据 */
@@ -251,7 +256,7 @@ int main(int argc, char* argv[]) {
 					close(users[user_count].pipefd[0]);
 					close(sig_pipefd[0]);
 					close(sig_pipefd[1]);
-					run_child(user_count,users,share_mem );
+					run_child(user_count, users, share_mem);
 					munmap((void*)share_mem, USER_LIMIT*BUFFER_SIZE);
 					exit(0);
 				} else {
@@ -259,7 +264,7 @@ int main(int argc, char* argv[]) {
 					close(users[user_count].pipefd[1]);
 					addfd(epollfd, users[user_count].pipefd[0]);
 					users[user_count].pid = pid;
-					/* 记录新的客户连接在数组 users 中的索引值，建立进程 pid和该索引值之间的映射关系*/
+					/* 记录新的客户连接在数组users中的索引值，建立进程pid和该索引值之间的映射关系 */
 					sub_process[pid] = user_count;
 					user_count++;
 				}
@@ -280,13 +285,13 @@ int main(int argc, char* argv[]) {
 								pid_t pid;
 								int stat;
 								while((pid = waitpid(-1, &stat, WNOHANG)) > 0) {
-									/* 用子进程的 pid取得被关闭的客户连接的编号 */
+									/* 用子进程的pid取得被关闭的客户连接的编号 */
 									int del_user = sub_process[pid];
 									sub_process[pid]= -1;
 									if((del_user < 0) || (del_user > USER_LIMIT)) {
 										continue;
 									}
-									/* 清除第 del_user 个客户连接使用的相关数据 */
+									/* 清除第del_user个客户连接使用的相关数据 */
 									epoll_ctl(epollfd, EPOLL_CTL_DEL, users[del_user].pipefd[0], 0);
 									close(users[del_user].pipefd[0]);
 									users[del_user] = users[--user_count];
@@ -329,7 +334,8 @@ int main(int argc, char* argv[]) {
 				} else if(ret == 0) {
 					continue;
 				} else {
-					/*"向除负责处理第child个客户连接的子进程之外的其他子进程发送消息，通知它们有客户数据要写 */
+					/* 向除负责处理第child个客户连接的子进程之外的其他子进程发送消息，
+					   通知它们有客户数据要写 */
 					for(int j = 0; j < user_count; ++j) {
 						if(users[j].pipefd[0] != sockfd) {
 							printf("send data to child accross pipe\n");
