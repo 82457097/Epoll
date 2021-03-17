@@ -23,14 +23,10 @@
 
 /* 处理一个客户连接必要的数据 */
 struct client_data {
-	/* 客户端的 socket 地址 */
-	sockaddr_in address;
-	/* socket文件描述符 */
-	int connfd;
-	/* 处理这个连接的子进程的PID */
-	pid_t pid;
-	/* 和父进程通信用的管道*/
-	int pipefd[2];
+	sockaddr_in address;    /* 客户端的 socket 地址 */
+	int connfd;             /* socket文件描述符 */
+	pid_t pid;              /* 处理这个连接的子进程的PID */
+	int pipefd[2];          /* 和父进程通信用的管道*/
 };
 
 static const char* shm_name = "/my_shm";
@@ -84,7 +80,7 @@ void addsig(int sig, void(*handler)(int), bool restart = true) {
 	assert(sigaction(sig, &sa, NULL) != -1);
 }
 
-void del_resource () {
+void del_resource() {
 	close(sig_pipefd[0]); 
 	close(sig_pipefd[1]); 
 	close(listenfd); 
@@ -106,7 +102,7 @@ int run_child(int idx, client_data* users, char* share_mem) {
 	epoll_event events[MAX_EVENT_NUMBER];
 	/* 子进程使用I/O复用技术来同时监听两个文件描述符∶
 	   客户连接socket与父进程通信的管道文件描述符*/
-	int child_epollfd = epoll_create( 5 );
+	int child_epollfd = epoll_create(5);
 	assert(child_epollfd != -1);
 	int connfd = users[idx].connfd;
 	addfd(child_epollfd, connfd);
@@ -114,7 +110,7 @@ int run_child(int idx, client_data* users, char* share_mem) {
 	addfd(child_epollfd, pipefd);
 	int ret;
 	/* 子进程需要设置自己的信号处理函数 */
-	addsig( SIGTERM,child_term_handler,false );
+	addsig(SIGTERM, child_term_handler, false);
 	while(!stop_child) {
 		int number = epoll_wait(child_epollfd, events, MAX_EVENT_NUMBER, -1);
 		if((number < 0) && (errno != EINTR)) {
@@ -132,7 +128,7 @@ int run_child(int idx, client_data* users, char* share_mem) {
 				   因此，各个客户连接的读缓存是共享的*/
 				ret = recv(connfd, share_mem + idx*BUFFER_SIZE, BUFFER_SIZE-1, 0);
 				if(ret < 0) {
-					if( errno != EAGAIN ) {
+					if(errno != EAGAIN) {
 						stop_child = true;
 					}
 				} else if(ret == 0) {
@@ -153,7 +149,7 @@ int run_child(int idx, client_data* users, char* share_mem) {
 				} else if(ret == 0) {
 					stop_child = true;
 				} else {
-					send(connfd, share_mem + client * BUFFER_SIZE, BUFFER_SIZE, 0);
+					send(connfd, share_mem + client*BUFFER_SIZE, BUFFER_SIZE, 0);
 				}
 			} else {
 				continue;
@@ -174,7 +170,6 @@ int main(int argc, char* argv[]) {
 	
 	const char* ip = argv[1];
 	int port = atoi(argv[2]);
-	
 	int ret = 0;
 	struct sockaddr_in address;
 	bzero(&address, sizeof(address));
@@ -207,6 +202,7 @@ int main(int argc, char* argv[]) {
 	addsig(SIGPIPE, SIG_IGN);
 	bool stop_server = false;
 	bool terminate = false;
+    
 	/* 创建共享内存，作为所有客户socket连接的读缓存 */ 
 	shmfd = shm_open(shm_name, O_CREAT | O_RDWR, 0666);
 	assert(shmfd != -1);
@@ -215,6 +211,7 @@ int main(int argc, char* argv[]) {
 	share_mem = (char*)mmap(NULL, USER_LIMIT*BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
 	assert(share_mem != MAP_FAILED);
 	close(shmfd);
+    
 	while(!stop_server) {
 		int number = epoll_wait(epollfd, events, MAX_EVENT_NUMBER, -1);
 		if((number < 0) && (errno != EINTR)) {
@@ -269,7 +266,7 @@ int main(int argc, char* argv[]) {
 					user_count++;
 				}
 			/* 处理信号事件*/
-			} else if((sockfd == sig_pipefd[0]) & (events[i].events & EPOLLIN)) {
+			} else if((sockfd == sig_pipefd[0]) && (events[i].events & EPOLLIN)) {
 				int sig;
 				char signals[1024];
 				ret = recv(sig_pipefd[0], signals, sizeof(signals), 0);
