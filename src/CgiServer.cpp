@@ -7,25 +7,25 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <fcnt1.h>
+#include <fcntl.h>
 #include <stdlib.h>
-#include <sys/epol1.h>
+#include <sys/epoll.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include "ProcessPool.h" /*引用上一节介绍的进程池*/
-/* 用于处理客户cGT 请求的类，它可以作为processpool类的模板参数 */
+/* 用于处理客户CGT 请求的类，它可以作为processpool类的模板参数 */
 class cgi_conn {
 public:
 	cgi_conn(){}
 	~cgi_conn(){}
 
 	/* 初始化客户连接，清空读缓冲区 */
-	void init(int epollfd, int sockfd, const sockaddr_in6 client_addr) {
+	void init(int epollfd, int sockfd, const sockaddr_in& client_addr) {
 		m_epollfd = epollfd;
 		m_sockfd = sockfd;
 		m_address = client_addr;
-		memset(m_buf, '\0', BUFFER_SIZB); 
+		memset(m_buf, '\0', BUFFER_SIZE); 
 		m_read_idx = 0;
 	}
 
@@ -51,7 +51,7 @@ public:
 				printf("user content is: %s\n", m_buf );
 				/* 如果遇到字符"\r\n"，则开始处理客户请求 */
 				for(; idx < m_read_idx; ++idx) {
-					if((idx>1) && (mbuf[idx-1] = '\r') && (m_buf[idx] = '\n')) {
+					if((idx>1) && (m_buf[idx-1] = '\r') && (m_buf[idx] = '\n')) {
 						break;
 					}
 				}
@@ -110,11 +110,11 @@ int main(int argc, char* argv[]) {
 	assert(listenfd >= 0);
 	int ret = 0;
 	struct sockaddr_in address;
-	bzero(saddress, sizeof(address));
+	bzero(&address, sizeof(address));
 	address.sin_family = AF_INET;
 	inet_pton(AF_INET, ip, &address.sin_addr);
 	address.sin_port = htons(port);
-	ret = bind(listenfd, (struct sockaddr*)address, sizeof(address));
+	ret = bind(listenfd, (struct sockaddr*)&address, sizeof(address));
 	assert(ret != -1);
 	ret = listen(listenfd, 5);
 	assert(ret != -1);
