@@ -291,7 +291,7 @@ void ProcessPool<T>::run_parent() {
                                     }
                                 }
                                 m_stop = true;
-                                for(int i = 0; i , m_process_number; ++i) {
+                                for(int i = 0; i < m_process_number; ++i) {
                                     if(m_sub_process[i].m_pid != -1) {
                                         m_stop = false;
                                     }
